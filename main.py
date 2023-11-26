@@ -17,7 +17,14 @@ async def main():
 
     graph: Graph = Graph(azure_settings)
 
+    # Check for existing token
+    token = graph.load_token()
+    # if token:
+    #     GraphServiceClient()
+    #     print('Using existing token.')
+
     await greet_user(graph)
+    await graph.save_token(graph)
 
     choice = -1
 
@@ -28,6 +35,8 @@ async def main():
         print('2. List my inbox')
         print('3. Send mail')
         print('4. Make a Graph call')
+        print('5. Get Tasks')
+        print('6. Get Tasks in List')
 
         try:
             choice = int(input())
@@ -45,6 +54,11 @@ async def main():
                 await send_mail(graph)
             elif choice == 4:
                 await make_graph_call(graph)
+            elif choice == 5:
+                await get_task_lists(graph)
+            elif choice == 6:
+                task_id = input()
+                await get_tasks_in_list(graph, task_id)
             else:
                 print('Invalid choice!\n')
         except ODataError as odata_error:
@@ -57,7 +71,7 @@ async def main():
 async def greet_user(graph: Graph):
     user = await graph.get_user()
     if user:
-        print('Hello,', user.display_name)
+        print('Hello,', user.display_name + " " + user.id)
         # For Work/school accounts, email is in mail property
         # Personal accounts, email is in userPrincipalName
         print('Email:', user.mail or user.user_principal_name, '\n')
@@ -116,6 +130,7 @@ async def get_task_lists(graph: Graph):
             print(f"List: {task_list['displayName']}, Id: {task_list['id']}")
 # </GetTaskListsSnippet>
 
+# <GetTasksInListSnippet>
 # <GetTasksInListSnippet>
 async def get_tasks_in_list(graph: Graph, list_id):
     tasks = await graph.get_tasks_in_list(list_id)

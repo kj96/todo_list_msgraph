@@ -1,6 +1,12 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+import os
+import json
+from datetime import datetime, timedelta
+
+import aiohttp
+
 # <UserAuthConfigSnippet>
 from configparser import SectionProxy
 from azure.identity import DeviceCodeCredential
@@ -94,17 +100,65 @@ class Graph:
     # </SendMailSnippet>
 
     # <MakeGraphCallSnippet>
-    async def make_graph_call(self):
-        # INSERT YOUR CODE HERE
-        return
+    async def make_graph_call(self, method, url, data=None, headers=None):
+        # Use aiohttp for asynchronous HTTP requests
+        async with aiohttp.ClientSession() as session:
+            # Prepare headers, including the Authorization header for the access token
+            if headers is None:
+                headers = {}
+            if 'Authorization' not in headers:
+                # token = await self.get_access_token()  # Method to obtain the access token
+                token = await self.get_user_token()
+                headers['Authorization'] = f'Bearer {token}'
+
+            # Make the API call
+            async with session.request(method, url, data=data, headers=headers) as response:
+                # Check response status
+                if response.status == 200:
+                    return await response.json()  # Return JSON response
+                else:
+                    # Handle error responses
+                    raise Exception(f"Graph API call failed: {response.status}")
     # </MakeGraphCallSnippet>
 
     async def get_task_lists(self):
-        # Endpoint to get task lists
-        url = self.api_endpoint('me/todo/lists')
-        return await self.make_api_call('GET', url)
+        url = 'https://graph.microsoft.com/v1.0/me/todo/lists'  # Directly set the URL
+        return await self.make_graph_call('GET', url)
 
     async def get_tasks_in_list(self, list_id):
-        # Endpoint to get tasks in a specific list
-        url = self.api_endpoint(f'me/todo/lists/{list_id}/tasks')
-        return await self.make_api_call('GET', url)
+        # Directly set the URL to get tasks in a specific list
+        url = f'https://graph.microsoft.com/v1.0/me/todo/lists/{list_id}/tasks'
+        return await self.make_graph_call('GET', url)
+
+    async def save_token(self, graph_o):
+        try:
+            access_token = await graph_o.get_user_token()  # Assuming this is an async method
+            refresh_token = await graph_o.refresh_token()  # Assuming this is an async method
+            expires_on = (datetime.utcnow() + timedelta(days=30)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')  # This should be a datetime or timestamp
+
+            token = {
+                'access_token': access_token,
+                'refresh_token': refresh_token,
+                'expires_on': expires_on.isoformat() if isinstance(expires_on, datetime) else expires_on
+            }
+
+            with open('token.json', 'w') as token_file:
+                json.dump(token, token_file)
+        except Exception as e:
+            # Handle exceptions, maybe log them or print an error message
+            print(f"Error saving token: {e}")
+
+    def load_token(self):
+        if os.path.exists('token.json'):
+            with open('token.json', 'r') as token_file:
+                token = json.load(token_file)
+                # Check if token is expired
+                expiry_time = datetime.strptime(token['expires_on'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                if expiry_time - datetime.utcnow() > timedelta(minutes=5):
+                    return token
+        return None
+
+    # Add a method to refresh the token if needed
+    async def refresh_token(self):
+        # Implement token refresh logic
+        pass

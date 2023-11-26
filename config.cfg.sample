@@ -1,0 +1,5 @@
+[azure]
+clientId = some-msgraph-client-idid-here
+tenantId = common
+graphUserScopes = Tasks.Read Tasks.ReadWrite Tasks.Read Tasks.ReadWrite
+
